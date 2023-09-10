@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Duration};
 
 use async_graphql::{
     dataloader::{DataLoader, Loader},
@@ -54,6 +54,7 @@ impl Loader<i32> for BatchAuthorById {
             .filter(|a| keys.contains(&a.id))
             .map(|a| (a.id, a.clone()))
             .collect();
+
         Ok(authors)
     }
 }
@@ -73,11 +74,7 @@ impl Query {
         books
             .into_iter()
             .map(|b| {
-                let author = match authors.iter().find(|a| a.id == b.author_id) {
-                    Some(a) => Some(a.clone()),
-                    None => None,
-                };
-
+                let author = authors.iter().find(|a| a.id == b.author_id).cloned();
                 Book { author, ..b }
             })
             .collect()
@@ -97,7 +94,7 @@ async fn graphiql_handler() -> impl IntoResponse {
 #[tokio::main]
 async fn main() {
     let schema = Schema::build(Query, EmptyMutation, EmptySubscription)
-        .data(DataLoader::new(BatchAuthorById, tokio::spawn))
+        .data(DataLoader::new(BatchAuthorById, tokio::spawn).delay(Duration::from_millis(0)))
         .finish();
 
     let app = Router::new()
